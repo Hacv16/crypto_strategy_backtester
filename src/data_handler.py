@@ -7,7 +7,7 @@ import pandas as pd
 class DataHandler:
     """
         Handles fetching loading and preprocessing of cryptocurrency data from a given
-        cryptocurrency exchange using CCXT.
+        cryptocurrency exchange (Binance by default) using CCXT.
     """
 
     def __init__(
@@ -15,7 +15,9 @@ class DataHandler:
             exchange_name: str = "binance",
             currency: str = "USDT",
             data_dir: str = "data/raw"
-    ):
+    ) -> None:
+        if not isinstance(exchange_name, str) or not exchange_name:
+            raise ValueError("Error: exchange_name must be a non-empty string")
 
         self.exchange_name = exchange_name
         self.currency = currency
@@ -50,7 +52,7 @@ class DataHandler:
             crypto_symbol: str,  # ex: 'BTC'
             timeframe: str = '1d',  # Daily
             since_days: int = 365 * 3  # Default to 3 years of data for example
-    ) -> list | None:
+    ) -> list[list[float]] | None:
         """
         Fetches historical OHLCV data from the exchange through CCXT.
 
@@ -134,18 +136,55 @@ class DataHandler:
 
         return df
 
-    def fetch_and_process_ohlcv_data(self,
-                                     crypto_symbol: str,
-                                     timeframe: str = '1d',
-                                     since_days: int = 365 * 3) -> pd.DataFrame:
+    def _load_data_from_csv(self, file_path: str) -> pd.DataFrame:
         """
-        Fetches and processes historical OHLCV data.
+        Loads OHLCV data from a CSV file.
+
+        :param file_path: Path to the CSV file.
+        :return: DataFrame containing OHLCV data.
+        """
+        if not os.path.exists(file_path):  # Important check
+            print(f"Error: CSV file not found at {file_path}")
+            return pd.DataFrame()
+
+        try:
+            df = pd.read_csv(file_path, index_col='Date', parse_dates=True)
+            print(f"Data loaded successfully from {file_path}")
+            return df
+        except Exception as e:
+            print(f"Error: failed to load data from {file_path}: {e}")
+            return pd.DataFrame()
+
+    def load_or_fetch_and_process_data(self,
+                                       crypto_symbol: str,
+                                       timeframe: str = '1d',
+                                       since_days: int = 365 * 3) -> pd.DataFrame:
+        """
+        Loads data from file if available, otherwise fetches and processes it.
 
         :param crypto_symbol: Cryptocurrency to be used for trading pair symbol (e.g., 'BTC').
         :param timeframe: Timeframe for the data (e.g., '1d', '1h').
         :param since_days: Number of days of historical data to fetch.
-        :return: DataFrame containing processed OHLCV data.
+        :return: DataFrame containing OHLCV data.
         """
 
-        raw_data = self._fetch_raw_historical_ohlcv_data(crypto_symbol, timeframe, since_days)
-        return self._process_raw_ohlcv_data(raw_data)
+        filename = f"{self.currency}_{crypto_symbol}_{timeframe}_{since_days}.csv"
+        file_path = os.path.join(self.data_dir, filename)
+
+        if os.path.exists(file_path):
+            print(f"Found existing data. Loading from {file_path}")
+            return self._load_data_from_csv(file_path)
+
+        print("No existing data found. Fetching and processing new data.")
+
+        raw_ohlcv = self._fetch_raw_historical_ohlcv_data(crypto_symbol, timeframe, since_days)
+        df = self._process_raw_ohlcv_data(raw_ohlcv)
+
+        if not df.empty:
+            df.to_csv(file_path)
+            print(f"Data fetched and saved to {file_path}")
+            return df
+        else:
+            print(f"Error: Failed to fetch or process data.")
+
+        return pd.DataFrame()
