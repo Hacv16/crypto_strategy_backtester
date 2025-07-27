@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-arg.txt
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDEs
+.idea/
+.vscode/
+
+# Data
+data/raw/*.csv
+data/processed/
+reports/
+
+# Logs
+*.log
