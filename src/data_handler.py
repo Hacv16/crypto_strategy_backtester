@@ -6,8 +6,8 @@ import pandas as pd
 
 class DataHandler:
     """
-        Handles fetching loading and preprocessing of cryptocurrency data from a given
-        cryptocurrency exchange (Binance by default) using CCXT.
+    Handles fetching loading and preprocessing of cryptocurrency data from a given
+    cryptocurrency exchange (Binance by default) using CCXT.
     """
 
     def __init__(
