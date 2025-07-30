@@ -1,0 +1,39 @@
+{
+  "SMA_Basic": {
+    "name": "SMA_Basic",
+    "description": "Simple Moving Average Strategy",
+    "parameters": {
+      "short_window": 20,
+      "long_window": 50
+    }
+  },
+  "SMA_Fast": {
+    "name": "SMA_Fast",
+    "description": "Fast Simple Moving Average Strategy",
+    "parameters": {
+      "short_window": 10,
+      "long_window": 30
+    }
+  },
+  "EMA_Basic": {
+    "name": "EMA_Basic",
+    "description": "Exponential Moving Average Strategy",
+    "parameters": {
+      "short_window": 20,
+      "long_window": 50
+    }
+  },
+  "EMA_Fast": {
+    "name": "EMA_Fast",
+    "description": "Fast Exponential Moving Average Strategy",
+    "parameters": {
+      "short_window": 10,
+      "long_window": 30
+    }
+  },
+  "HODL": {
+    "name": "HODL",
+    "description": "Hold Strategy",
+    "parameters": {}
+  }
+}

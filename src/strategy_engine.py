@@ -47,6 +47,8 @@ class MovingAverageStrategy(Strategy):
         }
 
     def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculates the moving averages and adds them to the DataFrame."""
+
         if df.empty or 'Close' not in df.columns:
             print("Strategy Engine Error: Missing data.")
             return df
@@ -74,6 +76,7 @@ class MovingAverageStrategy(Strategy):
         return new_df
 
     def _generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
+        """ Generates trading signals based on the moving averages."""
         if df.empty:
             print("Strategy Engine Error: Can't generate signals because dataframe is empty.")
             return pd.DataFrame()
