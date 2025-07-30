@@ -101,9 +101,7 @@ class DataHandler:
 
         return all_data
 
-    def _process_raw_ohlcv_data(
-            self,
-            raw_data: list) -> pd.DataFrame:
+    def _process_raw_ohlcv_data(self, raw_data: list) -> pd.DataFrame:
         """
         Processes the raw OHLCV data into a DataFrame.
 
@@ -155,10 +153,12 @@ class DataHandler:
             print(f"Error: failed to load data from {file_path}: {e}")
             return pd.DataFrame()
 
-    def load_or_fetch_and_process_data(self,
-                                       crypto_symbol: str,
-                                       timeframe: str = '1d',
-                                       since_days: int = 365 * 3) -> pd.DataFrame:
+    def load_or_fetch_and_process_data(
+            self,
+            crypto_symbol: str,
+            timeframe: str = '1d',
+            since_days: int = 365 * 3
+    ) -> pd.DataFrame:
         """
         Loads data from file if available, otherwise fetches and processes it.
 
