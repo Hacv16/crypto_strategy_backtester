@@ -1,39 +1,27 @@
 {
-  "SMA_Basic": {
-    "name": "SMA_Basic",
-    "description": "Simple Moving Average Strategy",
-    "parameters": {
-      "short_window": 20,
-      "long_window": 50
+    "EMA_Variable_Sizing": {
+        "type": "MovingAverageStrategy",
+        "params": {
+            "ma_type": "EMA",
+            "short_window": 12,
+            "long_window": 26,
+            "variable_sizing": true,
+            "atr_period": 14,
+            "risk_factor": 0.02
+        }
+    },
+    "EMA_Fixed_Sizing": {
+        "type": "MovingAverageStrategy",
+        "params": {
+            "ma_type": "EMA",
+            "short_window": 12,
+            "long_window": 26,
+            "variable_sizing": false,
+            "fixed_position_size": 100.0
+        }
+    },
+    "Buy_And_Hold_Benchmark": {
+        "type": "BuyAndHoldStrategy",
+        "params": {}
     }
-  },
-  "SMA_Fast": {
-    "name": "SMA_Fast",
-    "description": "Fast Simple Moving Average Strategy",
-    "parameters": {
-      "short_window": 10,
-      "long_window": 30
-    }
-  },
-  "EMA_Basic": {
-    "name": "EMA_Basic",
-    "description": "Exponential Moving Average Strategy",
-    "parameters": {
-      "short_window": 20,
-      "long_window": 50
-    }
-  },
-  "EMA_Fast": {
-    "name": "EMA_Fast",
-    "description": "Fast Exponential Moving Average Strategy",
-    "parameters": {
-      "short_window": 10,
-      "long_window": 30
-    }
-  },
-  "HODL": {
-    "name": "HODL",
-    "description": "Hold Strategy",
-    "parameters": {}
-  }
 }

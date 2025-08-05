@@ -25,6 +25,12 @@ class Strategy(ABC):
         """
         pass
 
+    def get_parameters(self) -> dict:
+        """
+        Returns the parameters of the strategy.
+        """
+        return self.parameters
+
 
 class MovingAverageStrategy(Strategy):
     # Stores the possible types of Moving Averages
