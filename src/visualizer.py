@@ -27,9 +27,10 @@ def plot_performance_comparison(equity_curves: Dict[str, pd.DataFrame], crypto_s
         ax.plot(normalized_equity.index, normalized_equity, label=strategy_name)
 
     # --- Style the plot ---
-    ax.set_title(f'Strategy Performance Comparison for {crypto_symbol}_{currency}', fontsize=16)
-    ax.set_xlabel('Date', fontsize=12)
-    ax.set_ylabel('Portfolio Value (Normalized to 100)', fontsize=12)
+    ax.axhline(100, color='grey', linestyle='--', linewidth=1.2)
+    ax.set_title(f'Strategy Performance Comparison for {crypto_symbol}_{currency}', fontsize=18, fontweight='bold')
+    ax.set_xlabel('Date', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Portfolio Value (Normalized to 100)', fontsize=14, fontweight='bold')
     ax.legend(loc='upper left')
     plt.xticks(rotation=45)
     plt.tight_layout()
