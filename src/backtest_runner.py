@@ -125,6 +125,12 @@ class BacktestRunner:
 
             self._update_capital_history(closing_price)
 
+        # Close any open position at the end of the backtest
+        if self.in_position:
+            last_price = self.df['Close'].iloc[-1]
+            self._sell(last_price, reason="End of backtest")
+            self.history[-1]['total_capital'] = self.cash
+
         history_df = pd.DataFrame(self.history)
         history_df.set_index('date', inplace=True)
 

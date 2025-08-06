@@ -1,5 +1,7 @@
 {
     "EMA_Variable_Sizing": {
+        "name": "EMA 12/26 with variable sizing",
+        "description": "A strategy that uses Exponential Moving Averages (EMA) with variable position sizing based on ATR.",
         "type": "MovingAverageStrategy",
         "params": {
             "ma_type": "EMA",
@@ -11,16 +13,20 @@
         }
     },
     "EMA_Fixed_Sizing": {
+        "name": "EMA 12/26 with fixed sizing",
+        "description": "A strategy that uses Exponential Moving Averages (EMA) with fixed position sizing.",
         "type": "MovingAverageStrategy",
         "params": {
             "ma_type": "EMA",
-            "short_window": 12,
-            "long_window": 26,
+            "short_window": 5,
+            "long_window": 20,
             "variable_sizing": false,
             "fixed_position_size": 100.0
         }
     },
     "Buy_And_Hold_Benchmark": {
+        "name": "Buy and Hold benchmark",
+        "description": "Buys on the first day and sells on the last day.",
         "type": "BuyAndHoldStrategy",
         "params": {}
     }

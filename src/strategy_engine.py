@@ -38,9 +38,11 @@ class MovingAverageStrategy(Strategy):
 
     def __init__(
             self,
-            ma_type: str,
-            short_window: int,
-            long_window: int,
+            name: str = "Moving Average Crossover Strategy",
+            description: str = "SMA/EMA Crossover Strategy",
+            ma_type: str = "SMA",
+            short_window: int = "50",
+            long_window: int = "200",
             variable_sizing: bool = False,
             fixed_position_size: float = 100.0,
             atr_period: int = 14,
@@ -51,9 +53,6 @@ class MovingAverageStrategy(Strategy):
             raise ValueError(
                 f"Strategy Engine Error: Unsupported ma_type '{ma_type}'. "
             )
-
-        name = f"{ma_type.upper()} Crossover ({short_window}/{long_window})"
-        description = f"Generates signals based on crossovers of {short_window}-day and {long_window}-day {ma_type}s."
 
         super().__init__(name, description)
 
@@ -77,7 +76,6 @@ class MovingAverageStrategy(Strategy):
 
     def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculates the moving averages and adds them to the DataFrame."""
-
         if df.empty or 'Close' not in df.columns:
             print("Strategy Engine Error: Missing data.")
             return df
@@ -94,6 +92,12 @@ class MovingAverageStrategy(Strategy):
                 span=self.short_window, adjust=False).mean()
             new_df[f'{self.ma_type}_{self.long_window}'] = df['Close'].ewm(
                 span=self.long_window, adjust=False).mean()
+
+            # Fill initial NaN values for the short and long moving averages
+            short_col_name = f'{self.ma_type}_{self.short_window}'
+            long_col_name = f'{self.ma_type}_{self.long_window}'
+            new_df.loc[new_df.index[:self.short_window - 1], short_col_name] = np.nan
+            new_df.loc[new_df.index[:self.long_window - 1], long_col_name] = np.nan
         else:
             print(f"Strategy Engine Error: Strategy '{self.ma_type}' type not recognized.")
             return new_df
@@ -159,9 +163,7 @@ class MovingAverageStrategy(Strategy):
 
 
 class BuyAndHoldStrategy(Strategy):
-    def __init__(self):
-        name = "Buy and Hold (HODL)"
-        description = "Buys on the first day and sells on the last"
+    def __init__(self, name="Buy and Hold", description="Buy and Hold Strategy") -> None:
         super().__init__(name, description)
 
     def _generate_signals_and_position_sizes(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -172,7 +174,7 @@ class BuyAndHoldStrategy(Strategy):
 
         new_df = df.copy()
         new_df["Signal"] = 0
-        new_df["Signal_Strength"] = 0.0
+        new_df["Position_Size"] = 0.0
 
         if len(new_df) < 2:
             print("Strategy Engine Warning: Not enough data for HODL strategy. At least two days are required.")
