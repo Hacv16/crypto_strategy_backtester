@@ -45,7 +45,11 @@ class BacktestRunner:
         return price * self.crypto_holdings + self.cash
 
     def _update_capital_history(self, price: float) -> None:
-        """ Updates the history of capital for the current date. """
+        """
+        Updates the history of capital for the current date.
+
+        :param: price: The current price of the cryptocurrency.
+        """
         total_capital = self._get_total_capital(price)
         self.history.append({
             'date': self.current_date,
@@ -53,7 +57,13 @@ class BacktestRunner:
         })
 
     def _sell(self, price: float, reason: str) -> None:
-        """ Executes a sell order and updates the state. """
+        """
+        Executes a sell order and updates the state.
+
+        :param price: The price at which the cryptocurrency is sold.
+        :param reason: The reason for the sell action (e.g., stop-loss, take-profit, signal).
+        """
+
         cash_return = self.crypto_holdings * price
         fee_amount = cash_return * self.transaction_fee
 
@@ -76,6 +86,13 @@ class BacktestRunner:
         self.trade_logs.append(current_trade)
 
     def _buy(self, price: float, position_size: float) -> None:
+        """
+        Executes a buy order and updates the state.
+
+        :param price: The price at which the cryptocurrency is bought.
+        :param position_size: Position size as a percentage of the cash available.
+        """
+
         cash_investment = self.cash * (position_size / 100.0)
         fee_amount = cash_investment * self.transaction_fee
         amount_after_fee = cash_investment - fee_amount
@@ -89,7 +106,12 @@ class BacktestRunner:
         self.in_position = True
 
     def run(self) -> tuple[pd.DataFrame, list]:
-        """ Executes the backtest over the provided DataFrame. """
+        """
+        Executes the backtest over the provided DataFrame and returns equity curve and trade logs.
+
+        :param: None
+        :return: A tuple containing a DataFrame with the equity curve and a list of trade logs.
+        """
 
         for index, row in self.df.iterrows():
             self.current_date = index
@@ -119,6 +141,8 @@ class BacktestRunner:
 
                 elif current_signal == -1:
                     self._sell(closing_price, reason="Signal trigger")
+                    self._update_capital_history(closing_price)
+                    continue
 
             elif not self.in_position and current_signal == 1:
                 self._buy(closing_price, current_position_size)
