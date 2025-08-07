@@ -1,10 +1,10 @@
 {
     "EMA_Variable_Sizing": {
-        "name": "EMA 12/26 with variable sizing",
-        "description": "A strategy that uses Exponential Moving Averages (EMA) with variable position sizing based on ATR.",
+        "name": "SMA 12/26 with variable sizing",
+        "description": "A strategy that uses Simple Moving Averages (SMA) with variable position sizing based on ATR.",
         "type": "MovingAverageStrategy",
         "params": {
-            "ma_type": "EMA",
+            "ma_type": "SMA",
             "short_window": 12,
             "long_window": 26,
             "variable_sizing": true,
