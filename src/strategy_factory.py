@@ -5,7 +5,11 @@ def create_strategy(config: dict) -> Strategy:
     """
     Factory function to dynamically create a strategy object from a
     config dictionary.
+
+    :param config: Dictionary containing strategy configuration.
+    :return: Instance of a Strategy subclass based on the configuration.
     """
+
     strategy_name = config.get("name", "Unnamed Strategy")
     strategy_description = config.get("description", "No description provided")
 

@@ -138,6 +138,7 @@ class DataHandler:
         :param file_path: Path to the CSV file.
         :return: DataFrame containing OHLCV data or raises an error.
         """
+
         try:
             df = pd.read_csv(file_path, index_col='Date', parse_dates=True)
             return df
