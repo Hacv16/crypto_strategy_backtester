@@ -3,24 +3,34 @@ import numpy as np
 
 
 def calculate_metrics(equity_curve: pd.DataFrame, trade_log: list, initial_capital: float) -> dict:
+    """
+    Calculates performance metrics from the equity curve and trade log.
+
+    :param: equity_curve: DataFrame containing the equity curve with a 'total_capital' column.
+    :param: trade_log: List of dictionaries containing trade details.
+    :param: initial_capital: Initial capital at the start of the backtest.
+    :return: Dictionary containing calculated performance metrics.
+    """
+
     metrics = {}
     capital_series = equity_curve['total_capital']
 
-    # --- Overall Performance ---
-    metrics['Final Capital'] = capital_series.iloc[-1]
-    metrics['Total Return (%)'] = ((metrics['Final Capital'] - initial_capital) / initial_capital) * 100.0
+    # Overall Performance
+    metrics['Final Capital'] = round(capital_series.iloc[-1], 2)
 
-    total_return_decimal = metrics['Total Return (%)'] / 100.0
+    total_return = ((metrics['Final Capital'] - initial_capital) / initial_capital)
+    metrics['Total Return (%)'] = round(total_return * 100.0, 2)
+
     time_span_days = (capital_series.index[-1] - capital_series.index[0]).days
     number_of_years = time_span_days / 365.25
 
     if number_of_years > 0:
-        annualized_return = ((1 + total_return_decimal) ** (1 / number_of_years) - 1) * 100
-        metrics['Annualized Return (%)'] = round(annualized_return, 2)
+        cagr = ((1 + total_return) ** (1 / number_of_years) - 1) * 100
+        metrics['CAGR (%)'] = round(cagr, 2)
     else:
-        metrics['Annualized Return (%)'] = 'N/A'
+        metrics['CAGR (%)'] = 'N/A'
 
-    # --- Risk Metrics ---
+    # Risk Metrics
     running_maximum_capital = capital_series.cummax()
     mdd_series = (capital_series - running_maximum_capital) / running_maximum_capital
     mdd = mdd_series.min()
@@ -35,7 +45,7 @@ def calculate_metrics(equity_curve: pd.DataFrame, trade_log: list, initial_capit
     else:
         metrics['Sharpe Ratio'] = 0.0
 
-    # --- Trade metrics ---
+    # Trade metrics
     metrics['Total Trades'] = len(trade_log)
     metrics['Winning Trades'] = sum(1 for trade in trade_log if trade['cash_profit'] > 0)
     metrics['Win Rate (%)'] = round((metrics['Winning Trades'] / metrics['Total Trades']) * 100, 2) \
@@ -50,10 +60,5 @@ def calculate_metrics(equity_curve: pd.DataFrame, trade_log: list, initial_capit
         metrics['Profit Factor'] = np.inf
     else:
         metrics["Profit Factor"] = 0.0
-
-    # Rounding for cleanliness
-    for key, value in metrics.items():
-        if isinstance(value, float):
-            metrics[key] = round(value, 2)
 
     return metrics
