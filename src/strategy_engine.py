@@ -1,230 +1,257 @@
 import pandas as pd
 import numpy as np
-
 from abc import ABC, abstractmethod
+from .position_sizer import PositionSizer, FixedPositionSizer
 
 
 class Strategy(ABC):
-    """Abstract base class for all trading strategies"""
+    """
+    Abstract base class for all trading strategies.
+    Separates signal generation from position sizing for maximum flexibility.
+    """
 
-    def __init__(
-            self,
-            name: str,
-            description: str
-    ) -> None:
-
+    def __init__(self, name: str, description: str, position_sizer: PositionSizer = None):
         self.name = name
         self.description = description
+        self.position_sizer = position_sizer or FixedPositionSizer()
         self.parameters = {}
 
     @abstractmethod
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        """
+        Generates trading signals based on the strategy logic.
+        This method should contain only the core strategy logic (signal generation).
+
+        :param df: DataFrame containing historical OHLCV data
+        :return: Series with signals (1 for buy, -1 for sell, 0 for hold)
+        """
+        pass
+
     def apply_strategy(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Applies the strategy to the DataFrame and returns the DataFrame
-        with the Trade signals and their strength.
+        Apply the complete strategy including signal generation and position sizing.
 
-        :param df: DataFrame containing historical OHLCV data.
-        :return: DataFrame with the strategy signals and position sizes.
+        :param df: DataFrame containing historical OHLCV data
+        :return: DataFrame with 'Signal' and 'Position_Size' columns
         """
+        if df.empty:
+            raise ValueError("Strategy Engine Error: DataFrame is empty.")
 
-        pass
+        # Generate trading signals (pure strategy logic)
+        signals = self.generate_signals(df)
+
+        # Calculate position sizes (risk management logic)
+        position_sizes = self.position_sizer.calculate_position_size(df, signals)
+
+        return pd.DataFrame({
+            'Signal': signals,
+            'Position_Size': position_sizes
+        }, index=df.index)
 
     def get_parameters(self) -> dict:
         """
-        Returns the parameters of the strategy.
-        :return: Dictionary containing the strategy-specific parameters.
-        """
+        Returns combined strategy and position sizing parameters for reporting.
 
-        return self.parameters
+        :return: Dictionary containing all strategy and position sizing parameters
+        """
+        params = self.parameters.copy()
+        params['position_sizer_type'] = type(self.position_sizer).__name__
+        return params
 
 
 class MovingAverageStrategy(Strategy):
-    # Stores the possible types of Moving Averages
+    """
+    Moving Average crossover strategy - generates signals when short MA crosses above/below long MA.
+    Supports both Simple Moving Average (SMA) and Exponential Moving Average (EMA).
+    """
+
+    # Supported moving average types
     SUPPORTED_MA_TYPES = {"SMA", "EMA"}
 
     def __init__(
             self,
             name: str,
             description: str,
-            ma_type: str,
-            short_window: int,
-            long_window: int,
-            variable_sizing: bool = False,
-            fixed_position_size: float = 100.0,
-            atr_period: int = 14,
-            risk_factor: float = 0.02
-    ) -> None:
+            ma_type: str = "SMA",
+            short_window: int = 12,
+            long_window: int = 26,
+            position_sizer: PositionSizer = None
+    ):
+        super().__init__(name, description, position_sizer)
 
         if ma_type.upper() not in self.SUPPORTED_MA_TYPES:
-            raise ValueError(
-                f"Strategy Engine Error: Unsupported ma_type '{ma_type}'. "
-            )
+            raise ValueError(f"Strategy Engine Error: Unsupported ma_type '{ma_type}'. "
+                             f"Supported types: {self.SUPPORTED_MA_TYPES}")
 
-        super().__init__(name, description)
+        if short_window >= long_window:
+            raise ValueError("Strategy Engine Error: Short window must be smaller than long window.")
 
         self.ma_type = ma_type.upper()
         self.short_window = short_window
         self.long_window = long_window
-        self.variable_sizing = variable_sizing
 
         self.parameters = {
-            "ma_type": ma_type.upper(),
+            "ma_type": self.ma_type,
             "short_window": short_window,
             "long_window": long_window,
-            "variable_sizing": variable_sizing
         }
 
-        if self.variable_sizing:
-            self.parameters['atr_period'] = atr_period
-            self.parameters['risk_factor'] = risk_factor
-        else:
-            self.parameters["fixed_position_size"] = fixed_position_size
-
-    def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _calculate_moving_averages(self, df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
         """
-        Calculates the moving averages and adds them to the DataFrame.
+        Calculates the short and long moving averages based on the specified type.
 
-        :param df: DataFrame containing historical OHLCV data.
-        :return: DataFrame with the calculated moving averages.
+        :param df: DataFrame containing OHLCV data
+        :return: Tuple of (short_ma, long_ma) as pandas Series
         """
+        if self.ma_type == "SMA":
+            short_ma = df['Close'].rolling(window=self.short_window).mean()
+            long_ma = df['Close'].rolling(window=self.long_window).mean()
+        else:  # EMA
+            short_ma = df['Close'].ewm(span=self.short_window, adjust=False).mean()
+            long_ma = df['Close'].ewm(span=self.long_window, adjust=False).mean()
 
+        return short_ma, long_ma
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        """
+        Generate signals based on moving average crossover.
+        Buy signal (1) when short MA crosses above long MA.
+        Sell signal (-1) when short MA crosses below long MA.
+
+        :param df: DataFrame containing OHLCV data
+        :return: Series with crossover signals
+        """
         if df.empty or 'Close' not in df.columns:
             raise ValueError("Strategy Engine Error: DataFrame must contain 'Close' column.")
 
-        new_df = df.copy()
+        short_ma, long_ma = self._calculate_moving_averages(df)
 
-        if self.ma_type == "SMA":
-            new_df[f'{self.ma_type}_{self.short_window}'] = df['Close'].rolling(
-                window=self.short_window).mean()
-            new_df[f'{self.ma_type}_{self.long_window}'] = df['Close'].rolling(
-                window=self.long_window).mean()
-        elif self.ma_type == "EMA":
-            new_df[f'{self.ma_type}_{self.short_window}'] = df['Close'].ewm(
-                span=self.short_window, adjust=False).mean()
-            new_df[f'{self.ma_type}_{self.long_window}'] = df['Close'].ewm(
-                span=self.long_window, adjust=False).mean()
+        # Generate trend direction: 1 when short MA > long MA, -1 otherwise
+        trend = np.where(short_ma > long_ma, 1, -1)
 
-            # Fill initial NaN values for the short and long moving averages
-            short_col_name = f'{self.ma_type}_{self.short_window}'
-            long_col_name = f'{self.ma_type}_{self.long_window}'
-            new_df.loc[new_df.index[:self.short_window - 1], short_col_name] = np.nan
-            new_df.loc[new_df.index[:self.long_window - 1], long_col_name] = np.nan
-        else:
-            raise ValueError(
-                f"Strategy Engine Error: Unsupported moving average type '{self.ma_type}'. "
-            )
+        # Detect trend changes to generate entry/exit signals
+        trend_series = pd.Series(trend, index=df.index)
+        trend_changes = trend_series.diff().fillna(0)
 
-        # Generic column names for easier signal generation
-        new_df['Short_MA'] = new_df[f'{self.ma_type}_{self.short_window}']
-        new_df['Long_MA'] = new_df[f'{self.ma_type}_{self.long_window}']
+        # Convert trend changes to signals: +2 becomes +1 (buy), -2 becomes -1 (sell)
+        signals = (trend_changes / 2).astype(int)
 
-        return new_df
-
-    def _generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Generates trading signals based on the moving averages.
-
-        :param df: DataFrame containing historical OHLCV data with moving averages.
-        :return: DataFrame with trading signals.
-        """
-
-        if df.empty or 'Short_MA' not in df.columns or 'Long_MA' not in df.columns:
-            raise ValueError("Strategy Engine Error: DataFrame must contain 'Short_MA' and 'Long_MA' columns.")
-
-        new_df = df.copy()
-
-        # Create new columns to store additional information
-        new_df['Trend'] = np.where(new_df['Short_MA'] > new_df['Long_MA'], 1, -1)
-        new_df['Trend_Delta'] = new_df['Trend'].diff().fillna(0).astype(int)
-        new_df['Signal'] = (new_df['Trend_Delta'] / 2).fillna(0)
-        new_df.drop(columns=['Trend', 'Trend_Delta'], inplace=True)
-
-        return new_df
-
-    def _generate_position_sizes(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Generates position sizes based on the strategy's variable sizing.
-
-        :param: df: DataFrame containing historical OHLCV data with signals.
-        :return: DataFrame with position sizes based on the strategy's variable sizing.
-        """
-
-        if df.empty or 'Signal' not in df.columns or 'Short_MA' not in df.columns or 'Long_MA' not in df.columns:
-            raise ValueError("Strategy Engine Error: DataFrame must contain Signal, Short_MA, and Long_MA columns.")
-
-        new_df = df.copy()
-
-        if self.variable_sizing:
-            high_low = new_df['High'] - new_df['Low']
-            high_prev_close = abs(new_df['High'] - new_df['Close'].shift(1))
-            low_prev_close = abs(new_df['Low'] - new_df['Close'].shift(1))
-            tr = pd.concat([high_low, high_prev_close, low_prev_close], axis=1).max(axis=1)
-            atr = tr.ewm(span=self.parameters['atr_period'], adjust=False).mean()
-
-            # Calculate position size inversely to volatility
-            position_size = (self.parameters['risk_factor'] * 100) / (atr / new_df['Close'])
-            position_size.clip(upper=100.0, inplace=True)
-
-            new_df['Position_Size'] = np.where(new_df['Signal'] != 0, position_size, 0.0)
-        else:
-            new_df['Position_Size'] = np.where(
-                new_df['Signal'] != 0, self.parameters['fixed_position_size'], 0.0
-            )
-
-        return new_df
-
-    def apply_strategy(self, df: pd.DataFrame) -> pd.DataFrame:
-        if df.empty:
-            raise ValueError("Strategy Engine Error: DataFrame is empty.")
-
-        df_with_indicators = self._calculate_indicators(df)
-        df_with_signals = self._generate_signals(df_with_indicators)
-        final_df = self._generate_position_sizes(df_with_signals)
-
-        return final_df[['Signal', 'Position_Size']]
+        return signals
 
 
-class BuyAndHoldStrategy(Strategy):
+class RSIStrategy(Strategy):
+    """
+    RSI Mean Reversion Strategy - buys when RSI is oversold, sells when overbought.
+    Uses the Relative Strength Index to identify potential reversal points.
+    """
+
     def __init__(
             self,
             name: str,
-            description: str
-    ) -> None:
+            description: str,
+            rsi_period: int = 14,
+            oversold_threshold: float = 30,
+            overbought_threshold: float = 70,
+            position_sizer: PositionSizer = None
+    ):
+        super().__init__(name, description, position_sizer)
 
-        super().__init__(name, description)
+        if rsi_period <= 0:
+            raise ValueError("Strategy Engine Error: RSI period must be positive.")
+        if not (0 < oversold_threshold < overbought_threshold < 100):
+            raise ValueError("Strategy Engine Error: Invalid RSI thresholds. Must be 0 < oversold < overbought < 100.")
 
-    def _generate_signals_and_position_sizes(self, df: pd.DataFrame) -> pd.DataFrame:
+        self.rsi_period = rsi_period
+        self.oversold_threshold = oversold_threshold
+        self.overbought_threshold = overbought_threshold
+
+        self.parameters = {
+            "rsi_period": rsi_period,
+            "oversold_threshold": oversold_threshold,
+            "overbought_threshold": overbought_threshold,
+        }
+
+    def _calculate_rsi(self, df: pd.DataFrame) -> pd.Series:
         """
-        Generates buy and sell signals for a Buy and Hold strategy.
+        Calculates the Relative Strength Index (RSI) indicator.
+        RSI = 100 - (100 / (1 + RS))
+        where RS = Average Gain / Average Loss over the specified period.
 
-        :param df: DataFrame containing historical OHLCV data.
-        :return: DataFrame with 'Signal' and 'Position_Size' columns.
+        :param df: DataFrame containing OHLCV data
+        :return: Series with RSI values
+        """
+        delta = df['Close'].diff()
+
+        # Separate gains and losses
+        gain = (delta.where(delta > 0, 0))
+        loss = (-delta.where(delta < 0, 0))
+
+        # Calculate average gain and loss using Wilder's smoothing
+        avg_gain = gain.ewm(alpha=1 / self.rsi_period, adjust=False).mean()
+        avg_loss = loss.ewm(alpha=1 / self.rsi_period, adjust=False).mean()
+
+        # Calculate RSI
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+
+        return rsi
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        """
+        Generate mean reversion signals based on RSI levels.
+        Buy signal when RSI drops below oversold threshold.
+        Sell signal when RSI rises above overbought threshold.
+
+        :param df: DataFrame containing OHLCV data
+        :return: Series with RSI-based signals
+        """
+        if df.empty or 'Close' not in df.columns:
+            raise ValueError("Strategy Engine Error: DataFrame must contain 'Close' column.")
+
+        rsi = self._calculate_rsi(df)
+
+        # Initialize signals series with zeros
+        signals = pd.Series(0, index=df.index)
+
+        # Generate signals based on RSI thresholds
+        signals[rsi < self.oversold_threshold] = 1  # Buy when oversold
+        signals[rsi > self.overbought_threshold] = -1  # Sell when overbought
+
+        return signals
+
+
+class BuyAndHoldStrategy(Strategy):
+    """
+    Buy and Hold Strategy - a benchmark strategy that buys on the first day
+    and holds until the last day of the backtest period.
+    """
+
+    def __init__(self, name: str, description: str, position_sizer: PositionSizer = None):
+        super().__init__(name, description, position_sizer)
+
+        # Buy and Hold strategy takes no parameters
+        self.parameters = {}
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        """
+        Generates buy and hold signals: buy on first day, sell on last day.
+
+        :param df: DataFrame containing OHLCV data
+        :return: Series with buy and hold signals
         """
         if df.empty:
             raise ValueError("Strategy Engine Error: DataFrame is empty.")
 
-        new_df = df.copy()
-        new_df["Signal"] = 0
-        new_df["Position_Size"] = 0.0
+        if len(df) < 2:
+            raise ValueError("Strategy Engine Error: At least two days are required for Buy and Hold strategy.")
 
-        if len(new_df) < 2:
-            raise ValueError("Strategy Engine Error:  At least two days are required for Buy and Hold strategy.")
+        # Initialize all signals to zero
+        signals = pd.Series(0, index=df.index)
 
-        # Buy on the first day
-        first_day = new_df.index[0]
-        new_df.loc[first_day, 'Signal'] = 1
-        new_df.loc[first_day, 'Position_Size'] = 100.0
+        # Buy on first day
+        signals.iloc[0] = 1
 
-        # Signal to sell on the very last available day
-        last_day = new_df.index[-1]
-        new_df.loc[last_day, 'Signal'] = -1
-        new_df.loc[last_day, 'Position_Size'] = 100.0
+        # Sell on last day
+        signals.iloc[-1] = -1
 
-        return new_df
-
-    def apply_strategy(self, df: pd.DataFrame) -> pd.DataFrame:
-        if df.empty:
-            raise ValueError("Strategy Engine Error: DataFrame is empty.")
-
-        final_df = self._generate_signals_and_position_sizes(df)
-        return final_df[['Signal', 'Position_Size']]
+        return signals
