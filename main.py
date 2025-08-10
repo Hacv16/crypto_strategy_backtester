@@ -125,6 +125,9 @@ def run_backtest():
             # Extract risk overrides if present
             risk_overrides = strategy_config.get('risk_overrides', None)
 
+            if risk_overrides is not None:
+                print(strategy_name)
+
             # Run backtest
             runner = BacktestRunner(
                 df=combined_df,

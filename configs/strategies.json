@@ -66,8 +66,12 @@
     "position_sizer": {
       "type": "FixedPositionSizer",
       "params": {
-        "fixed_size_pct": 75.0
+        "fixed_size_pct": 100.0
       }
+    },
+    "risk_overrides": {
+      "stop_loss_pct": 0.00,
+      "take_profit_pct": 0.00
     }
   }
 }

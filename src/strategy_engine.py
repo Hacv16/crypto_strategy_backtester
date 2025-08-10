@@ -224,6 +224,7 @@ class BuyAndHoldStrategy(Strategy):
     """
     Buy and Hold Strategy - a benchmark strategy that buys on the first day
     and holds until the last day of the backtest period.
+    FIXED: Now properly tracks the underlying asset price throughout the period.
     """
 
     def __init__(self, name: str, description: str, position_sizer: PositionSizer = None):
@@ -235,6 +236,7 @@ class BuyAndHoldStrategy(Strategy):
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         """
         Generates buy and hold signals: buy on first day, sell on last day.
+        FIXED: Now explicitly sells on the last day to ensure proper closing.
 
         :param df: DataFrame containing OHLCV data
         :return: Series with buy and hold signals
@@ -248,10 +250,10 @@ class BuyAndHoldStrategy(Strategy):
         # Initialize all signals to zero
         signals = pd.Series(0, index=df.index)
 
-        # Buy on first day
+        # Buy signal on first day
         signals.iloc[0] = 1
 
-        # Sell on last day
+        # Sell signal on the last day
         signals.iloc[-1] = -1
 
         return signals

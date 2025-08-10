@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import seaborn as sns
 
+from datetime import datetime
 from typing import Dict
 
 
@@ -44,7 +45,10 @@ def plot_performance_comparison(equity_curves: Dict[str, pd.DataFrame], crypto_s
     # Save the plot to a file
     report_path = 'reports/comparative_plots'
     os.makedirs(report_path, exist_ok=True)
-    filename = f"{crypto_symbol}_{currency}_performance_comparison.png"
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"backtest_plot_{crypto_symbol}_{timestamp}.png"
+
     file_path = os.path.join(report_path, filename)
 
     plt.savefig(file_path)

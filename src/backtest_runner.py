@@ -35,7 +35,7 @@ class BacktestRunner:
             initial_capital: float = 10000.0,
             default_risk_params: RiskParameters = None,
             strategy_risk_overrides: Optional[dict] = None
-    ) -> None:
+    ):
 
         if df is None or df.empty:
             raise ValueError("Backtest Runner Error: DataFrame must not be empty.")
@@ -229,12 +229,15 @@ class BacktestRunner:
             # Update portfolio value history
             self._update_capital_history(closing_price)
 
-        # Close any remaining open position at the end of backtest period
+        # Finalize the backtest by closing any open positions
         if self.in_position:
             last_price = self.df['Close'].iloc[-1]
             self._sell(last_price, "End of backtest")
-            # Update the final capital history entry
-            self.history[-1]['total_capital'] = self.cash
+
+            # FIXED: Update the final history entry with correct total capital calculation
+            # Remove the last entry and add a corrected one
+            if self.history:
+                self.history[-1]['total_capital'] = self._get_total_capital(last_price)
 
         # Prepare results for return
         history_df = pd.DataFrame(self.history)

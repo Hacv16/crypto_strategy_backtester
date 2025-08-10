@@ -15,7 +15,7 @@ class DataHandler:
             exchange_name: str = "binance",
             currency: str = "USDT",
             data_dir: str = "data/raw"
-    ) -> None:
+    ):
 
         if not isinstance(exchange_name, str) or not exchange_name:
             raise ValueError("Data Handler Error: exchange_name must be a non-empty string")
