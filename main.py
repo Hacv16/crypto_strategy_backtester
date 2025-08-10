@@ -1,122 +1,218 @@
+"""
+Crypto Strategy Backtester - Main Orchestrator
+Coordinates the entire backtesting workflow from data loading to report generation.
+"""
+
 import json
 import os
 import pandas as pd
+from datetime import datetime
 
 from src.data_handler import DataHandler
-from src.backtest_runner import BacktestRunner
-
 from src.strategy_factory import create_strategy
+from src.backtest_runner import BacktestRunner, RiskParameters
 from src.performance_analyzer import calculate_metrics
 from src.visualizer import plot_performance_comparison
 
-DATA_DIR = "data/raw"
-CONFIGS_DIR = "configs"
 
-DATA_SETTINGS_FILE_NAME = "data_settings.json"
-STRATEGIES_FILE_NAME = "strategies.json"
-BACKTEST_SETTINGS_FILE_NAME = "backtest_settings.json"
+def load_config(file_path: str) -> dict:
+    """
+    Load configuration from JSON file with error handling.
 
-
-def load_settings(filepath: str) -> dict:
-    """Loads the settings from a JSON file."""
+    :param file_path: Path to the JSON configuration file
+    :return: Dictionary containing configuration data
+    """
     try:
-        with open(filepath, 'r') as f:
+        with open(file_path, 'r') as f:
             return json.load(f)
     except FileNotFoundError:
-        print(f"ERROR: settings file not found at {filepath}")
-        return {}
-    except json.JSONDecodeError:
-        print(f"ERROR: Could not decode JSON from {filepath}")
-        return {}
+        raise FileNotFoundError(f"Configuration file not found: {file_path}")
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in {file_path}: {e}")
 
 
-def main():
-    # Load data settings
-    data_settings_file_path = os.path.join(CONFIGS_DIR, DATA_SETTINGS_FILE_NAME)
-    data_settings = load_settings(data_settings_file_path)
+def setup_output_directories():
+    """Create necessary output directories for reports and plots."""
+    directories = [
+        'reports',
+        'reports/comparative_metrics',
+        'reports/comparative_plots'
+    ]
 
-    # Load strategies settings
-    strategies_file_path = os.path.join(CONFIGS_DIR, STRATEGIES_FILE_NAME)
-    strategies = load_settings(strategies_file_path)
+    for directory in directories:
+        os.makedirs(directory, exist_ok=True)
 
-    # Load backtest settings
-    backtest_settings_file_path = os.path.join(CONFIGS_DIR, BACKTEST_SETTINGS_FILE_NAME)
-    backtest_settings = load_settings(backtest_settings_file_path)
 
-    # Create strategy instances
-    strategy_instances = []
+def run_backtest():
+    """
+    Main backtesting function that orchestrates the entire workflow.
+    Loads configurations, processes data, runs strategies, and generates reports.
+    """
 
-    for strategy_name, strategy_configs in strategies.items():
-        try:
-            strategy = create_strategy(strategy_configs)
-            strategy_instances.append(strategy)
-        except ValueError as e:
-            print(f"Error creating strategy '{strategy_name}': {e}")
+    print("=" * 60)
+    print("CRYPTO STRATEGY BACKTESTER")
+    print("=" * 60)
 
-    # Initialize DataHandler
-    data_handler = DataHandler(
-        exchange_name=data_settings.get('exchange_name', 'binance'),
-        currency=data_settings.get('currency', 'USDT'),
-        data_dir=data_settings.get('data_dir', DATA_DIR)
-    )
+    # Setup output directories
+    setup_output_directories()
 
-    # Load or fetch OHLCV data
-    ohlcv_data = data_handler.load_or_fetch_and_process_data(
-        crypto_symbol=data_settings.get('crypto_symbol', 'BTC'),
-        timeframe=data_settings.get('timeframe', '1d'),
-        since_days=data_settings.get('since_days', 365 * 3)
-    )
-
-    if ohlcv_data.empty:
-        print("No OHLCV data available for backtesting.")
+    # Load all configuration files
+    print("Loading configuration files...")
+    try:
+        data_config = load_config('configs/data_settings.json')
+        backtest_config = load_config('configs/backtest_settings.json')
+        strategies_config = load_config('configs/strategies.json')
+        print(f"✓ Loaded configurations for {len(strategies_config)} strategies")
+    except Exception as e:
+        print(f"✗ Configuration loading failed: {e}")
         return
 
-    equity_curves = {}
-    strategy_metrics = {}
+    # Create default risk parameters from backtest settings
+    default_risk = RiskParameters(
+        stop_loss_pct=backtest_config.get('stop_loss_pct', 0.00),
+        take_profit_pct=backtest_config.get('take_profit_pct', 0.00),
+        transaction_fee_pct=backtest_config.get('transaction_fee_pct', 0.00)
+    )
 
-    # Backtest for each strategy
-    for strategy in strategy_instances:
+    print(f"✓ Default risk parameters: SL={default_risk.stop_loss_pct * 100:.1f}%, "
+          f"TP={default_risk.take_profit_pct * 100:.1f}%")
+
+    # Initialize data handler and load market data
+    print(f"\nLoading market data for {data_config.get('crypto_symbol', 'BTC')}...")
+    data_handler = DataHandler(
+        exchange_name=data_config.get('exchange_name', 'binance'),
+        currency=data_config.get('currency', 'USDT'),
+        data_dir=data_config.get('data_dir', 'data/raw')
+    )
+
+    try:
+        market_df = data_handler.load_or_fetch_and_process_data(
+            crypto_symbol=data_config.get('crypto_symbol', 'BTC'),
+            timeframe=data_config.get('timeframe', '1d'),
+            since_days=data_config.get('since_days', 365)
+        )
+
+        if market_df.empty:
+            print("✗ No market data available")
+            return
+
+        print(f"✓ Loaded {len(market_df)} days of market data")
+
+    except Exception as e:
+        print(f"✗ Data loading failed: {e}")
+        return
+
+    # Initialize results storage
+    all_results = {}
+    all_equity_curves = {}
+
+    print(f"\nRunning {len(strategies_config)} strategy backtests...")
+    print("-" * 60)
+
+    # Execute backtests for each strategy
+    for strategy_id, strategy_config in strategies_config.items():
+        strategy_name = strategy_config.get('name', strategy_id)
+        print(f"Running: {strategy_name}")
+
         try:
-            trade_signals = strategy.apply_strategy(ohlcv_data)
-            data_for_backtest = ohlcv_data.join(trade_signals).dropna()
+            # Create and apply strategy
+            strategy = create_strategy(strategy_config)
+            strategy_df = strategy.apply_strategy(market_df.copy())
 
+            # Combine market data with strategy signals
+            combined_df = market_df.join(strategy_df)
+
+            # Extract risk overrides if present
+            risk_overrides = strategy_config.get('risk_overrides', None)
+
+            # Run backtest
             runner = BacktestRunner(
-                df=data_for_backtest,
-                initial_balance=backtest_settings.get('initial_balance', 10000.0),
-                transaction_fee=backtest_settings.get('transaction_fee', 0.0),
-                stop_loss_pct=strategy.parameters.get('stop_loss_pct', 0.0),
-                take_profit_pct=strategy.parameters.get('take_profit_pct', 0.0)
+                df=combined_df,
+                initial_capital=backtest_config.get('initial_capital', 10000),
+                default_risk_params=default_risk,
+                strategy_risk_overrides=risk_overrides
             )
 
-            equity_curve, trade_log = runner.run()
-            metrics = calculate_metrics(equity_curve, trade_log, initial_capital=backtest_settings['initial_balance'])
+            equity_curve, trade_logs, risk_params_used = runner.run()
 
-            equity_curves[strategy.name] = equity_curve
-            strategy_metrics[strategy.name] = metrics
+            # Calculate performance metrics
+            metrics = calculate_metrics(
+                equity_curve,
+                trade_logs,
+                backtest_config.get('initial_capital', 10000)
+            )
+
+            # Add additional information to metrics
+            metrics.update({
+                'Strategy_Type': strategy_config.get('type', 'Unknown'),
+                'Total_Days': len(equity_curve),
+                'Risk_Stop_Loss_Used': f"{risk_params_used['stop_loss_pct'] * 100:.1f}%",
+                'Risk_Take_Profit_Used': f"{risk_params_used['take_profit_pct'] * 100:.1f}%",
+                'Position_Sizer_Type': strategy.get_parameters().get('position_sizer_type', 'Unknown')
+            })
+
+            # Store results
+            all_results[strategy_name] = metrics
+            all_equity_curves[strategy_name] = equity_curve
+
+            # Print summary
+            print(f"  ✓ Final Capital: ${metrics['Final Capital']:,.2f} "
+                  f"({metrics['Total Return (%)']}% total return)")
+            print(f"    Risk Settings: SL={metrics['Risk_Stop_Loss_Used']}, "
+                  f"TP={metrics['Risk_Take_Profit_Used']}")
+            print(f"    Position Sizer: {metrics['Position_Sizer_Type']}")
 
         except Exception as e:
-            print(f"Error: Failed to backtest strategy '{strategy.name}': {e}")
+            print(f"  ✗ Failed: {e}")
+            continue
 
-    # Plot performance comparison
-    if equity_curves:
-        crypto_symbol = data_settings.get('crypto_symbol', 'BTC')
-        currency = data_settings.get('currency', 'USDT')
-        plot_performance_comparison(equity_curves, crypto_symbol, currency)
+    if not all_results:
+        print("✗ No successful backtests to analyze")
+        return
 
-    # Save each strategy's metrics to a CSV file
-    if strategy_metrics:
-        summary_df = pd.DataFrame.from_dict(strategy_metrics, orient='index')
+    print(f"\nGenerating reports and visualizations...")
 
-        summary_df.reset_index(inplace=True)
-        summary_df.rename(columns={'index': 'strategy_name'}, inplace=True)
+    # Generate performance comparison plot
+    try:
+        plot_performance_comparison(
+            all_equity_curves,
+            data_config.get('crypto_symbol', 'BTC'),
+            data_config.get('currency', 'USDT')
+        )
+        print("✓ Comparative performance plot saved")
+    except Exception as e:
+        print(f"✗ Plot generation failed: {e}")
 
-        report_path = 'reports/comparative_metrics'
-        os.makedirs(report_path, exist_ok=True)
+    # Save comprehensive results to CSV
+    try:
+        results_df = pd.DataFrame(all_results).T
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        results_filename = f"backtest_results_{data_config.get('crypto_symbol', 'BTC')}_{timestamp}.csv"
+        results_path = os.path.join('reports/comparative_metrics', results_filename)
+        results_df.to_csv(results_path)
+        print(f"✓ Detailed results saved to: {results_path}")
+    except Exception as e:
+        print(f"✗ Results saving failed: {e}")
 
-        crypto_symbol = data_settings.get('crypto_symbol', 'BTC')
-        filename = f"{crypto_symbol}_strategy_comparison.csv"
-        summary_df.to_csv(os.path.join(report_path, filename), index=False)
+    # Print summary table
+    print("\n" + "=" * 80)
+    print("BACKTEST RESULTS SUMMARY")
+    print("=" * 80)
+
+    summary_columns = ['Final Capital', 'Total Return (%)', 'CAGR (%)', 'MDD (%)',
+                       'Sharpe Ratio', 'Total Trades', 'Win Rate (%)']
+
+    for strategy_name, metrics in all_results.items():
+        print(f"\n{strategy_name}:")
+        for col in summary_columns:
+            if col in metrics:
+                print(f"  {col:<20}: {metrics[col]}")
+
+    print("\n" + "=" * 80)
+    print(f"Backtest completed successfully!")
+    print(f"Check the 'reports/' directory for detailed results and visualizations.")
+    print("=" * 80)
 
 
 if __name__ == "__main__":
-    main()
+    run_backtest()
