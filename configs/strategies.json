@@ -1,33 +1,67 @@
 {
-    "EMA_Variable_Sizing": {
-        "name": "SMA 12/26 with variable sizing",
-        "description": "A strategy that uses Simple Moving Averages (SMA) with variable position sizing based on ATR.",
-        "type": "MovingAverageStrategy",
-        "params": {
-            "ma_type": "SMA",
-            "short_window": 12,
-            "long_window": 26,
-            "variable_sizing": true,
-            "atr_period": 14,
-            "risk_factor": 0.02
-        }
+  "SMA_ATR_Sizing": {
+    "name": "SMA 12/26 with ATR Sizing",
+    "description": "Simple Moving Average strategy with volatility-based position sizing using ATR.",
+    "type": "MovingAverageStrategy",
+    "params": {
+      "ma_type": "SMA",
+      "short_window": 12,
+      "long_window": 26
     },
-    "EMA_Fixed_Sizing": {
-        "name": "EMA 12/26 with fixed sizing",
-        "description": "A strategy that uses Exponential Moving Averages (EMA) with fixed position sizing.",
-        "type": "MovingAverageStrategy",
-        "params": {
-            "ma_type": "EMA",
-            "short_window": 5,
-            "long_window": 20,
-            "variable_sizing": false,
-            "fixed_position_size": 100.0
-        }
-    },
-    "Buy_And_Hold_Benchmark": {
-        "name": "Buy and Hold benchmark",
-        "description": "Buys on the first day and sells on the last day.",
-        "type": "BuyAndHoldStrategy",
-        "params": {}
+    "position_sizer": {
+      "type": "ATRPositionSizer",
+      "params": {
+        "atr_period": 14,
+        "risk_factor": 0.02,
+        "max_position": 100.0
+      }
     }
+  },
+
+  "EMA_Fixed_Size": {
+    "name": "EMA 12/26 Fixed Position",
+    "description": "Exponential Moving Average strategy with fixed 75% position sizing.",
+    "type": "MovingAverageStrategy",
+    "params": {
+      "ma_type": "EMA",
+      "short_window": 12,
+      "long_window": 26
+    },
+    "position_sizer": {
+      "type": "FixedPositionSizer",
+      "params": {
+        "position_size": 75.0
+      }
+    }
+  },
+
+  "RSI_Mean_Reversion": {
+    "name": "RSI Mean Reversion Strategy",
+    "description": "RSI-based mean reversion strategy with Kelly position sizing.",
+    "type": "RSIStrategy",
+    "params": {
+      "rsi_period": 14,
+      "oversold_threshold": 30,
+      "overbought_threshold": 70
+    },
+    "position_sizer": {
+      "type": "ATRPositionSizer",
+      "params": {
+        "atr_period": 14,
+        "risk_factor": 0.05,
+        "max_position": 100.0
+      }
+    },
+    "risk_overrides": {
+      "stop_loss_pct": 0.05,
+      "take_profit_pct": 0.12
+    }
+  },
+
+  "Buy_And_Hold_Benchmark": {
+    "name": "Buy and Hold Benchmark",
+    "description": "Simple buy and hold strategy for performance comparison.",
+    "type": "BuyAndHoldStrategy",
+    "params": {}
+  }
 }

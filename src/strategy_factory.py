@@ -59,7 +59,6 @@ def create_strategy(config: dict) -> Strategy:
         )
 
     try:
-        # Create strategy with position sizer
         return strategy_class(
             name=strategy_name,
             description=strategy_description,

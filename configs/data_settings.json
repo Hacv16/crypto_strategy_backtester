@@ -1,6 +1,8 @@
 {
+  "exchange_name": "binance",
   "currency": "USDT",
   "crypto_symbol": "BTC",
   "timeframe": "1d",
-  "since_days": 1095
+  "since_days": 1095,
+  "data_dir": "data/raw"
 }

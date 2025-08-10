@@ -151,7 +151,7 @@ class DataHandler:
             self,
             crypto_symbol: str,
             timeframe: str = '1d',
-            since_days: int = 365 * 3
+            since_days: int = 365
     ) -> pd.DataFrame:
         """
         Loads data from a local file if available and sufficient. Otherwise,
