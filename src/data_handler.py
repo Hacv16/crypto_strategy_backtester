@@ -163,31 +163,42 @@ class DataHandler:
         :return: A DataFrame containing the OHLCV data
         """
 
-        # Use a canonical filename independent of the date range
         symbol_pair = f"{crypto_symbol}-{self.currency}"
         filename = f"{symbol_pair.replace('/', '')}_{timeframe}.csv"
         file_path = os.path.join(self.data_dir, filename)
 
+        df_to_process = pd.DataFrame()
+
         try:
             # Check if a local file already exists
             if os.path.exists(file_path):
-                df = self._load_data_from_csv(file_path)
-
+                loaded_df = self._load_data_from_csv(file_path)
                 # Check if the existing data is sufficient for the request
+                required_start_date_check = pd.to_datetime(dt.datetime.now() - dt.timedelta(days=since_days))
+
+                if not loaded_df.empty and loaded_df.index[0] <= required_start_date_check:
+                    df_to_process = loaded_df
+
+            # If data wasn't loaded from cache, fetch it
+            if df_to_process.empty:
+                raw_data = self._fetch_raw_historical_ohlcv_data(crypto_symbol, timeframe, since_days)
+                df_to_process = self._process_raw_ohlcv_data(raw_data)
+                # Save the new, complete data
+                if not df_to_process.empty:
+                    df_to_process.to_csv(file_path)
+
+            # Before returning, filter the DataFrame to the exact start date requested
+            if not df_to_process.empty:
                 required_start_date = pd.to_datetime(dt.datetime.now() - dt.timedelta(days=since_days))
 
-                if not df.empty and df.index[0] <= required_start_date:
-                    return df
+                # Ensure timezone consistency for comparison if the index is timezone-aware
+                if df_to_process.index.tz is not None:
+                    required_start_date = required_start_date.tz_localize(df_to_process.index.tz)
 
-            raw_data = self._fetch_raw_historical_ohlcv_data(crypto_symbol, timeframe, since_days)
-            df = self._process_raw_ohlcv_data(raw_data)
+                return df_to_process[df_to_process.index >= required_start_date]
 
-            # Save the new, complete data, overwriting the old file if it existed
-            if not df.empty:
-                df.to_csv(file_path)
+            return df_to_process
 
-            return df
-
-        except (ValueError, IOError, ConnectionError) as e:
+        except Exception as e:
             print(f"DataHandler Error for {crypto_symbol}: {e}")
             return pd.DataFrame()

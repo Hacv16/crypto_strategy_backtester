@@ -256,8 +256,15 @@ except Exception as e:
 📖 **See [Strategy Documentation](docs/strategies.md) and [Position Sizer Documentation](docs/position_sizers.md) for detailed parameters, algorithms, and usage examples.**
 
 ## Future Plans
-
-*[This section will be filled with upcoming features and improvements]*
+- Create a Frontend User Interface (UI): Web-based dashboard for configuring and running backtests
+  - This will allow for interactive visualizations of equity curves, performance metrics, and trade logs, making strategy analysis more intuitive.
+  - Users should be able to select strategies, set parameters, and view results without needing to modify JSON files or run scripts manually.
+- Machine Learning Integration
+  - Incorporate ML-driven strategies and predictive analytics
+- Expanded Strategy & Position Sizer Library
+  - Add more built-in strategies and risk management algorithms
+- Strategy Optimization Suite
+  - Implement parameter optimization suite using different search algorithms
 
 ## Performance Metrics
 

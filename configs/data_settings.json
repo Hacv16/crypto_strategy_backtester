@@ -1,0 +1,7 @@
+{
+  "exchange_name": "binance",
+  "currency": "USDT",
+  "crypto_symbol": "BTC",
+  "timeframe": "1d",
+  "since_days": 365
+}

@@ -1,0 +1,15 @@
+{
+  "SMA_Strategy": {
+    "name": "SMA 12/26 Crossover",
+    "type": "MovingAverageStrategy",
+    "params": {
+      "ma_type": "SMA",
+      "short_window": 12,
+      "long_window": 26
+    },
+    "position_sizer": {
+      "type": "FixedPositionSizer",
+      "params": {"fixed_size_pct": 100.0}
+    }
+  }
+}
