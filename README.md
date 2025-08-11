@@ -46,7 +46,7 @@ An end-to-end Python framework for developing, backtesting, and analyzing quanti
 ### Installation
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/crypto-strategy-backtester.git
+git clone https://github.com/Hacv16/crypto-strategy-backtester.git
 cd crypto-strategy-backtester
 ```
 
