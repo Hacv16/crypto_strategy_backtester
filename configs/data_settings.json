@@ -1,8 +1,0 @@
-{
-  "exchange_name": "binance",
-  "currency": "USDT",
-  "crypto_symbol": "XRP",
-  "timeframe": "1d",
-  "since_days": 200,
-  "data_dir": "data/raw"
-}

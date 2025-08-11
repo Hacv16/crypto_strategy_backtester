@@ -1,6 +1,0 @@
-{
-  "initial_capital": 10000.0,
-  "transaction_fee_pct": 0.00,
-  "stop_loss_pct": 0.10,
-  "take_profit_pct": 0.10
-}
